@@ -20,6 +20,14 @@ class ModelTests(TestCase):
         self.assertEqual(user.email, email)
         self.assertTrue(user.check_password(password))
 
+    def test_user_starting_cash_balance(self):
+        """Test that new user have chash balance equal 0.0"""
+        user = get_user_model().objects.create_user(
+            email='Test@example.com',
+            password='Testpass',
+        )
+        self.assertEqual(user.cash_balance, 0.0)
+
     def test_new_user_email_normalizer(self):
         """Test email is normalized for new users."""
         sample_emails = [
