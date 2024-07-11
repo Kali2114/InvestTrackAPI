@@ -4,6 +4,8 @@ Tests for models.
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
+from core import models
+
 
 class ModelTests(TestCase):
     """Test models."""
@@ -56,3 +58,21 @@ class ModelTests(TestCase):
 
         self.assertTrue(user.is_superuser)
         self.assertTrue(user.is_staff)
+
+    def test_create_investment(self):
+        """Test creating investment is successful."""
+        user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='Testpass123',
+        )
+        investment = models.Investment.objects.create(
+            user=user,
+            title='Test title',
+            asset_name='Test Name',
+            type='bond',
+            quantity=10.0,
+            purchase_price=5.7,
+            current_price=11.2,
+        )
+
+        self.assertEqual(str(investment), investment.title)

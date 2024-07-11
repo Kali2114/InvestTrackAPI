@@ -1,12 +1,16 @@
 """
 Database models.
 """
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
     PermissionsMixin,
 )
+
+from core import constants
 
 
 class UserManager(BaseUserManager):
@@ -42,3 +46,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
+
+
+class Investment(models.Model):
+    """Database modl for investments."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='investments')
+    transaction_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255, blank=True)
+    asset_name = models.CharField(max_length=255)
+    type = models.CharField(max_length=255, choices=constants.INVESTMENT_TYPE_CONSTANT)
+    quantity = models.FloatField()
+    purchase_price = models.FloatField()
+    current_price = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.title
