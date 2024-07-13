@@ -57,3 +57,12 @@ class AuthTokenSerializer(serializers.Serializer):
 
         attrs['user'] = user
         return attrs
+
+class DepositWithdrawSerializer(serializers.Serializer):
+    """Serializer for deposit and withdraw operations."""
+    amount = serializers.FloatField()
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Amount must be positive.')
+        return value

@@ -7,3 +7,7 @@ INVESTMENT_TYPE_CONSTANT = (
     ('cc', 'Cryptocurrency')
 )
 ALPHA_VANTAGE_API_KEY = 'KT5PD27H90VFTKJG'
+TRANSACTION_TYPE = (
+    ('sell', 'Sell'),
+    ('buy', 'Buy')
+)

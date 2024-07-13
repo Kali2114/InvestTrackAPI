@@ -10,8 +10,14 @@ from core.constants import ALPHA_VANTAGE_API_KEY
 def get_stock_price(symbol):
     """Get current price for a stock or bond using Alpha Vantage."""
     ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY)
-    data, _ = ts.get_quote_endpoint(symbol=symbol)
-    return float(data['05. price'])
+    data, _ = ts.get_intraday(symbol=symbol, interval='5min', outputsize='compact')
+
+    if "Time Series (5min)" in data:
+        latest_timestamp = max(data["Time Series (5min)"].keys())
+        latest_data = data["Time Series (5min)"][latest_timestamp]
+        return float(latest_data['4. close'])
+    else:
+        raise KeyError(f"Key 'Time Series (5min)' not found in response: {data}")
 
 
 def get_crypto_price(crypto_id):
@@ -32,6 +38,3 @@ def get_current_price(investment_type, identifier):
         return get_crypto_price(identifier)
     else:
         raise ValueError(f"Unknown investment type {investment_type}.")
-
-def dummy_function():
-    return "original value"

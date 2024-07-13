@@ -1,6 +1,7 @@
 """
 Views for transaction API.
 """
+from django.utils import timezone
 from django.db import transaction
 from rest_framework import (
     viewsets,
@@ -65,10 +66,6 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         current_price = get_current_price(type, asset_name)
         total_cost = current_price * quantity
 
-        print(f"User cash balance before purchase: {user.cash_balance}")
-        print(f"Total cost of investment: {total_cost}")
-        print(f"Mocked current price: {current_price}")
-
         if user.cash_balance < total_cost:
             return Response(
                 {'detail': 'Insufficient funds.'},
@@ -78,9 +75,7 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         with transaction.atomic():
             user.cash_balance -= total_cost
             user.save()
-            print(f"User cash balance after purchase (before save): {user.cash_balance}")
             serializer.save(user=user, purchase_price=current_price, current_price=current_price)
-            print(f"User cash balance after save: {user.cash_balance}")
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -91,8 +86,11 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         amount_to_add = instance.current_price * instance.quantity
 
         with transaction.atomic():
+            instance.sale_price = instance.current_price
+            instance.sale_date = timezone.now()
             user.cash_balance += amount_to_add
             user.save()
+            instance.save()
             self.perform_destroy(instance)
 
         return Response(status=status.HTTP_204_NO_CONTENT)

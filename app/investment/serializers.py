@@ -22,7 +22,7 @@ class InvestmentSerializer(serializers.ModelSerializer):
             'purchase_price',
             'current_price',
             'created_at',
-            'updated_at',
+            'sale_date',
         ]
         read_only_fields = [
             'id',
@@ -30,7 +30,7 @@ class InvestmentSerializer(serializers.ModelSerializer):
             'user',
             'current_price',
             'created_at',
-            'updated_at',
+            'sale_date',
         ]
         extra_kwargs = {
             'purchase_price': {'required': False}

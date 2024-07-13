@@ -12,7 +12,7 @@ from rest_framework import status
 from core.models import Investment
 
 from investment.serializers import InvestmentSerializer
-from investment.utils import get_current_price, dummy_function
+from investment.utils import get_current_price
 
 
 INVESTMENT_URL = reverse('investment:investment-list')
@@ -100,10 +100,51 @@ class PrivateInvestmentApiTests(TestCase):
         self.assertEqual(len(res.data), 2)
         self.assertEqual(res.data, serializer.data)
 
-    def test_buy_investment_successful(self):
-        """Test buying an investment successfully deducts from cash balance."""
-        start_balance = self.user.cash_balance
 
+    @patch('investment.utils.TimeSeries')
+    def test_buy_investment_successful_stock(self, MockTimeSeries):
+        """Test buying a stock investment successfully deducts from cash balance."""
+        mock_instance = MockTimeSeries.return_value
+        mock_instance.get_intraday.return_value = ({
+            "Meta Data": {
+                "1. Information": "Intraday (5min) open, high, low, close prices and volume",
+                "2. Symbol": "AAPL",
+                "3. Last Refreshed": "2024-07-11 19:55:00",
+                "4. Interval": "5min",
+                "5. Output Size": "Compact",
+                "6. Time Zone": "US/Eastern"
+            },
+            "Time Series (5min)": {
+                "2024-07-11 19:55:00": {
+                    "1. open": "228.3400",
+                    "2. high": "228.5000",
+                    "3. low": "227.8200",
+                    "4. close": "228.2880",
+                    "5. volume": "16275"
+                }
+            }
+        }, None)
+
+        start_balance = self.user.cash_balance
+        payload = {
+            'title': 'Test Stock Purchase',
+            'asset_name': 'AAPL',
+            'type': 'stock',
+            'quantity': 1,
+        }
+        res = self.client.post(INVESTMENT_BUY, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        investment = Investment.objects.get(id=res.data['id'])
+        self.user.refresh_from_db()
+        expected_balance = start_balance - investment.current_price
+        self.assertEqual(self.user.cash_balance, expected_balance)
+        for k, v in payload.items():
+            self.assertEqual(getattr(investment, k), v)
+
+    def test_buy_investment_successful_cc(self):
+        """Test buying a crypto investment successfully deducts from cash balance."""
+        start_balance = self.user.cash_balance
         payload = {
             'title': 'Test title',
             'asset_name': 'bitcoin',
@@ -118,7 +159,6 @@ class PrivateInvestmentApiTests(TestCase):
         expected_balance = start_balance - investment.current_price
         self.assertEqual(self.user.cash_balance, expected_balance)
         for k, v in payload.items():
-            print(f"Checking attribute {k}, expected: {v}, got: {getattr(investment, k)}")
             self.assertEqual(getattr(investment, k), v)
 
     @patch('investment.utils.get_current_price')
@@ -215,9 +255,11 @@ class PrivateInvestmentApiTests(TestCase):
 
     def test_delete_investment_successful(self):
         """Test deleting an investment is successful and updates cash balance."""
+        test_balance = self.user.cash_balance
         investment = create_investment(user=self.user)
-        initial_cash_balance = self.user.cash_balance
-        expected_cash_balance = initial_cash_balance + (investment.current_price * investment.quantity)
+        all_costs = investment.current_price * investment.quantity
+        expected_cash_balance = test_balance + all_costs
+        self.user.sale_price = all_costs
         url = investment_detail_url(investment.id)
         res = self.client.delete(url)
 
@@ -226,14 +268,4 @@ class PrivateInvestmentApiTests(TestCase):
         self.assertFalse(exist)
         self.user.refresh_from_db()
         self.assertEqual(self.user.cash_balance, expected_cash_balance)
-
-    @patch('investment.utils.dummy_function')
-    def test_simple_patch(self, mock_dummy_function):
-        """Test that dummy_function is properly mocked."""
-        print(f"Mock object: {mock_dummy_function}")
-        mock_dummy_function.return_value = "mocked value"
-        print(f"Mocked return value: {mock_dummy_function.return_value}")
-        result = dummy_function()
-
-        print(f"Function result: {result}")
-        self.assertEqual(result, "mocked value")
+        self.assertEqual(self.user.sale_price, all_costs)

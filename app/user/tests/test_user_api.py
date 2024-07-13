@@ -13,7 +13,8 @@ from rest_framework.authtoken.models import Token
 CREATE_USER_URL = reverse('user:create')
 TOKEN_URL = reverse('user:token')
 ME_URL = reverse('user:me')
-
+WITHDRAW_URL = reverse('user:withdraw')
+DEPOSIT_URL = reverse('user:deposit')
 
 def create_user(**kwargs):
     """Create and return a new user."""
@@ -127,7 +128,8 @@ class PrivateUserApiTests(TestCase):
         self.user = create_user(
             email='test@example.com',
             password='Testpass123',
-            name='Test Name'
+            name='Test Name',
+            cash_balance=1000,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -161,3 +163,47 @@ class PrivateUserApiTests(TestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(self.user.name, payload['name'])
         self.assertTrue(self.user.check_password(payload['password']))
+
+    def test_deposit_money_success(self):
+        """Test depositing money successful."""
+        payload = {'amount': 500}
+        expected_balance = self.user.cash_balance + payload['amount']
+        res = self.client.post(DEPOSIT_URL, payload)
+        self.user.refresh_from_db()
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.cash_balance, expected_balance)
+
+    def test_withdraw_money_success(self):
+        """Test withdrawing money successful."""
+        payload = {'amount': 500}
+        expected_balance = self.user.cash_balance - payload['amount']
+        res = self.client.post(WITHDRAW_URL, payload)
+        self.user.refresh_from_db()
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.user.cash_balance, expected_balance)
+
+    def test_withdraw_insufficient_funds(self):
+        """Test withdrawing more money than available via API."""
+        payload = {'amount': 1500}
+        res = self.client.post(reverse('user:withdraw'), payload)
+
+        self.user.refresh_from_db()
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.user.cash_balance, 1000)
+
+    def test_deposit_negative_amount(self):
+        """Test depositing a negative amount via API."""
+        payload = {'amount': -500}
+        res = self.client.post(reverse('user:deposit'), payload)
+        print(res.data)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.user.cash_balance, 1000)
+
+    def test_withdraw_negative_amount(self):
+        """Test withdrawing a negative amount via API."""
+        payload = {'amount': -500}
+        res = self.client.post(reverse('user:withdraw'), payload)
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.user.cash_balance, 1000)
