@@ -3,6 +3,7 @@ Database models.
 """
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -49,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class Investment(models.Model):
-    """Database modl for investments."""
+    """Database model for investments."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='investments')
     transaction_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     title = models.CharField(max_length=255, blank=True)
@@ -64,3 +65,25 @@ class Investment(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class TransactionHistory(models.Model):
+    """Database model for transaction history."""
+    investment = models.ForeignKey(
+        'Investment',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    transaction_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    transaction_type = models.CharField(max_length=10, choices=constants.TRANSACTION_TYPE)
+    type = models.CharField(max_length=255, choices=constants.INVESTMENT_TYPE_CONSTANT)
+    quantity = models.FloatField()
+    purchase_price = models.FloatField()
+    sale_price = models.FloatField()
+    purchase_date = models.DateTimeField()
+    sale_date = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.transaction_id} by {self.user.name}'

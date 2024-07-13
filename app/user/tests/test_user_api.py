@@ -197,7 +197,6 @@ class PrivateUserApiTests(TestCase):
         """Test depositing a negative amount via API."""
         payload = {'amount': -500}
         res = self.client.post(reverse('user:deposit'), payload)
-        print(res.data)
         self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(self.user.cash_balance, 1000)
 

@@ -1,6 +1,7 @@
 """
 Tests for models.
 """
+from django.utils import timezone
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 
@@ -76,3 +77,35 @@ class ModelTests(TestCase):
         )
 
         self.assertEqual(str(investment), investment.title)
+
+    def test_create_transaction_history(self):
+        """Test create transaction history model successful."""
+        user = get_user_model().objects.create_user(
+            email='test@example.com',
+            password='Testpass123',
+            name='Test Name',
+        )
+        investment = models.Investment.objects.create(
+            user=user,
+            title='Test title',
+            asset_name='Test Name',
+            type='bond',
+            quantity=10.0,
+            purchase_price=5.7,
+            current_price=11.2,
+        )
+        transaction_history = models.TransactionHistory.objects.create(
+            investment=investment,
+            user=user,
+            transaction_id=investment.transaction_id,
+            transaction_type='buy',
+            type=investment.type,
+            quantity=investment.quantity,
+            purchase_price=investment.purchase_price,
+            sale_price=0,
+            purchase_date=timezone.now(),
+        )
+
+        self.assertEqual(str(transaction_history),
+        f'{transaction_history.transaction_id} by {user.name}'
+        )
