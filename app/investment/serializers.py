@@ -3,7 +3,7 @@ Serializers for the investment API.
 """
 from rest_framework import serializers
 
-from core.models import Investment
+from core.models import Investment, TransactionHistory
 
 
 class InvestmentSerializer(serializers.ModelSerializer):
@@ -64,3 +64,36 @@ class InvestmentSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create and return a new investment."""
         return Investment.objects.create(**validated_data)
+    
+
+class TransactionHistorySerializer(serializers.ModelSerializer):
+    """Serialize for transaction history objects."""
+
+    class Meta:
+        model = TransactionHistory
+        fields = [
+            'id',
+            'investment',
+            'user',
+            'transaction_id',
+            'transaction_type',
+            'type',
+            'quantity',
+            'purchase_price',
+            'sale_price',
+            'purchase_date',
+            'sale_date',
+        ]
+        read_only_fields = [
+            'id',
+            'investment',
+            'user',
+            'transaction_id',
+            'transaction_type',
+            'type',
+            'quantity',
+            'purchase_price',
+            'sale_price',
+            'purchase_date',
+            'sale_date',
+        ]

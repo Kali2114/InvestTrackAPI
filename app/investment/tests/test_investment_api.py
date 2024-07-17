@@ -4,23 +4,30 @@ Test for the investment API.
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from unittest.mock import patch
 
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from core.models import Investment
+from core.models import Investment, TransactionHistory
 
-from investment.serializers import InvestmentSerializer
+from investment.serializers import (
+    InvestmentSerializer,
+    TransactionHistorySerializer,
+)
 from investment.utils import get_current_price
 
 
 INVESTMENT_URL = reverse('investment:investment-list')
 INVESTMENT_BUY = reverse('investment:investment-buy')
+TRANSACTION_HISTORY = reverse('investment:transaction-history-list')
+
 
 def investment_detail_url(investment_id):
     """Create and return investment detail url."""
     return reverse('investment:investment-detail', args=[investment_id])
+
 
 def create_investment(user, **kwargs):
     """Create and return a sample investment."""
@@ -37,6 +44,24 @@ def create_investment(user, **kwargs):
 
     investment = Investment.objects.create(user=user, **defaults)
     return investment
+
+
+def create_transaction_history(user, investment, **kwargs):
+    """Create and return a sample transaction history."""
+    defaults = {
+        'transaction_id': investment.transaction_id,
+        'transaction_type': 'buy',
+        'type': investment.type,
+        'quantity': investment.quantity,
+        'purchase_price': investment.purchase_price,
+        'sale_price': investment.current_price,
+        'purchase_date': investment.created_at,
+        'sale_date': timezone.now()
+    }
+    defaults.update(**kwargs)
+
+    return TransactionHistory.objects.create(user=user, investment=investment, **defaults)
+
 
 def create_user(**kwargs):
     """Create and return a new user."""
@@ -269,3 +294,59 @@ class PrivateInvestmentApiTests(TestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.cash_balance, expected_cash_balance)
         self.assertEqual(self.user.sale_price, all_costs)
+
+    def test_retrieve_transactions_history(self):
+        """Test retrieving a list of transactions history."""
+        investment = create_investment(user=self.user)
+        investment2 = create_investment(user=self.user)
+        create_transaction_history(user=self.user, investment=investment)
+        create_transaction_history(user=self.user, investment=investment2)
+        res = self.client.get(TRANSACTION_HISTORY)
+
+        transactions = TransactionHistory.objects.all().order_by('-id')
+        serializer = TransactionHistorySerializer(transactions, many=True)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data, serializer.data)
+
+    def test_transactions_history_limited_to_user(self):
+        """Test retrieving transactions history for user."""
+        user2 = create_user(
+            email='Exampl2@test.com',
+            password='Testpass123',
+            name='testuser2',
+        )
+        investment1 = create_investment(user=self.user)
+        investment2 = create_investment(user=self.user)
+        another_investment = create_investment(user=user2)
+        create_transaction_history(user=self.user, investment=investment1)
+        create_transaction_history(user=self.user, investment=investment2)
+        create_transaction_history(user=user2, investment=another_investment)
+        res = self.client.get(TRANSACTION_HISTORY)
+
+        transactions = TransactionHistory.objects.filter(user=self.user).order_by('-id')
+        serializer = TransactionHistorySerializer(transactions, many=True)
+
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 2)
+        self.assertEqual(res.data, serializer.data)
+
+    def test_create_transaction_history_while_selling_investment(self):
+        """Test creating a transaction history entry while selling an investment."""
+        investment = create_investment(user=self.user)
+        transaction_id = investment.transaction_id
+        url = investment_detail_url(investment.id)
+        res = self.client.delete(url)
+
+        transaction_exists = TransactionHistory.objects.filter(
+            user=self.user,
+            transaction_id=transaction_id
+        ).exists()
+        transaction_history = TransactionHistory.objects.filter(
+            user=self.user,
+            transaction_id=transaction_id
+        ).first()
+
+        self.assertEqual(res.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(investment.transaction_id, transaction_history.transaction_id)
+        self.assertTrue(transaction_exists)

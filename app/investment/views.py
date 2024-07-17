@@ -12,9 +12,12 @@ from rest_framework import (
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-from core.models import Investment
+from core.models import Investment, TransactionHistory
 from investment.utils import get_current_price
-from investment.serializers import InvestmentSerializer
+from investment.serializers import (
+    InvestmentSerializer,
+    TransactionHistorySerializer,
+)
 import logging
 
 
@@ -86,6 +89,19 @@ class InvestmentViewSet(viewsets.ModelViewSet):
         amount_to_add = instance.current_price * instance.quantity
 
         with transaction.atomic():
+            TransactionHistory.objects.create(
+                investment=instance,
+                user=user,
+                transaction_id=instance.transaction_id,
+                transaction_type='sell',
+                type=instance.type,
+                quantity=instance.quantity,
+                purchase_price=instance.purchase_price,
+                sale_price=instance.current_price,
+                purchase_date=instance.created_at,
+                sale_date=timezone.now(),
+            )
+
             instance.sale_price = instance.current_price
             instance.sale_date = timezone.now()
             user.cash_balance += amount_to_add
@@ -94,3 +110,15 @@ class InvestmentViewSet(viewsets.ModelViewSet):
             self.perform_destroy(instance)
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TransactionHistoryView(viewsets.ReadOnlyModelViewSet):
+    """Viewset for retrieving transaction history."""
+    serializer_class = TransactionHistorySerializer
+    queryset = Investment.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [authentication.TokenAuthentication]
+
+    def get_queryset(self):
+        """Retrieve transaction history for the authenticated user."""
+        return TransactionHistory.objects.filter(user=self.request.user).order_by('-id')

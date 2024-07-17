@@ -102,7 +102,7 @@ class ModelTests(TestCase):
             type=investment.type,
             quantity=investment.quantity,
             purchase_price=investment.purchase_price,
-            sale_price=0,
+            sale_price=investment.current_price,
             purchase_date=timezone.now(),
         )
 
